@@ -11,6 +11,7 @@ const { generalLimiter } = require('./middleware/rateLimiter');
 const authRoutes = require('./routes/auth');
 const urlRoutes = require('./routes/urls');
 const analyticsRoutes = require('./routes/analytics');
+const webhookRoutes = require('./routes/webhooks');
 const urlController = require('./controllers/urlController');
 const { validators, validate } = require('./utils/validators');
 
@@ -56,6 +57,7 @@ app.get('/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/urls', urlRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/webhooks', webhookRoutes);
 
 // Redirect route (main functionality)
 app.get('/:shortCode', 

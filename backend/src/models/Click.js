@@ -35,6 +35,10 @@ const Click = sequelize.define('Click', {
     type: DataTypes.STRING,
     allowNull: true
   },
+  region: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
   device: {
     type: DataTypes.STRING,
     allowNull: true
@@ -43,7 +47,35 @@ const Click = sequelize.define('Click', {
     type: DataTypes.STRING,
     allowNull: true
   },
+  browserVersion: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
   os: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  osVersion: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  utmSource: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  utmMedium: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  utmCampaign: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  utmTerm: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  utmContent: {
     type: DataTypes.STRING,
     allowNull: true
   },

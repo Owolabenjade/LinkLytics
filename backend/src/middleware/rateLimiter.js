@@ -41,6 +41,13 @@ const generalLimiter = rateLimit({
   store: new RedisStore(redis),
   keyGenerator: (req) => {
     return `rate_limit:${req.ip}`;
+  },
+  handler: (req, res) => {
+    res.status(429).json({
+      success: false,
+      message: 'Too many requests, please try again later.',
+      retryAfter: req.rateLimit.resetTime
+    });
   }
 });
 
@@ -57,6 +64,13 @@ const authLimiter = rateLimit({
   store: new RedisStore(redis),
   keyGenerator: (req) => {
     return `auth_limit:${req.ip}`;
+  },
+  handler: (req, res) => {
+    res.status(429).json({
+      success: false,
+      message: 'Too many authentication attempts, please try again later.',
+      retryAfter: req.rateLimit.resetTime
+    });
   }
 });
 
@@ -79,6 +93,13 @@ const apiLimiter = rateLimit({
     return req.user 
       ? `api_limit:user:${req.user.id}`
       : `api_limit:ip:${req.ip}`;
+  },
+  handler: (req, res) => {
+    res.status(429).json({
+      success: false,
+      message: 'API rate limit exceeded.',
+      retryAfter: req.rateLimit.resetTime
+    });
   }
 });
 

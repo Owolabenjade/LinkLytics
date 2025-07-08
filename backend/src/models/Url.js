@@ -48,6 +48,35 @@ const Url = sequelize.define('Url', {
   expiresAt: {
     type: DataTypes.DATE,
     allowNull: true
+  },
+  isABTest: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false
+  },
+  destinations: {
+    type: DataTypes.JSONB,
+    allowNull: true,
+    defaultValue: null,
+    validate: {
+      isValidDestinations(value) {
+        if (!value || !this.isABTest) return;
+        
+        if (!Array.isArray(value) || value.length < 2) {
+          throw new Error('A/B test requires at least 2 destinations');
+        }
+        
+        const totalWeight = value.reduce((sum, dest) => sum + (dest.weight || 0), 0);
+        if (totalWeight !== 100) {
+          throw new Error('Destination weights must sum to 100');
+        }
+        
+        value.forEach((dest, index) => {
+          if (!dest.url || !dest.weight) {
+            throw new Error(`Destination ${index} must have url and weight`);
+          }
+        });
+      }
+    }
   }
 }, {
   tableName: 'urls',
