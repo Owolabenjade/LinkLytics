@@ -36,6 +36,9 @@ router.delete('/:id',
   urlController.deleteUrl
 );
 
+// QR Code route - public access (no authentication required)
+router.get('/:shortCode/qr', urlController.getQRCode);
+
 // API key routes (for programmatic access)
 router.post('/api/shorten',
   authenticateApiKey,

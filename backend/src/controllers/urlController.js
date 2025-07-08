@@ -1,6 +1,7 @@
 const { Url, Click } = require('../models');
 const { AppError, catchAsync } = require('../middleware/errorHandler');
 const { generateUniqueShortCode } = require('../utils/generateShortCode');
+const { generateQRCode } = require('../services/qrCodeService');
 const redis = require('../config/redis');
 const config = require('../config/config');
 
@@ -198,6 +199,38 @@ const deleteUrl = catchAsync(async (req, res, next) => {
 });
 
 /**
+ * Get QR Code for a shortened URL
+ */
+const getQRCode = catchAsync(async (req, res, next) => {
+  const { shortCode } = req.params;
+  const { size = 300, format = 'png' } = req.query;
+  
+  // Verify URL exists
+  const url = await Url.findOne({
+    where: { shortCode, isActive: true }
+  });
+  
+  if (!url) {
+    return next(new AppError('URL not found', 404));
+  }
+  
+  const qrCode = await generateQRCode(shortCode, {
+    size: parseInt(size),
+    format
+  });
+  
+  if (format === 'base64' || format === 'svg') {
+    res.json({
+      success: true,
+      data: { qrCode }
+    });
+  } else {
+    res.set('Content-Type', 'image/png');
+    res.send(qrCode);
+  }
+});
+
+/**
  * Redirect to original URL
  */
 const redirect = catchAsync(async (req, res, next) => {
@@ -262,5 +295,6 @@ module.exports = {
   getUrl,
   updateUrl,
   deleteUrl,
+  getQRCode,
   redirect
 };
