@@ -19,10 +19,9 @@
   "author": "Benjamin Owolabi",
   "license": "ISC",
   "dependencies": {
-    "useragent": "^2.3.0",
-    "qrcode": "^1.5.3"
+    "qrcode": "^1.5.4",
+    "useragent": "^2.3.0"
   },
-  "devDependencies": {},
   "engines": {
     "node": ">=14.0.0"
   }
