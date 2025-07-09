@@ -8,7 +8,7 @@ import Login from './components/Auth/Login';
 import Register from './components/Auth/Register';
 import Dashboard from './pages/Dashboard';
 import CreateLink from './pages/CreateLink';
-import { LinkIcon, BarChart3Icon, ScaleIcon } from 'lucide-react';
+import { LinkIcon, BarChart3 as BarChart3Icon, Scale as ScaleIcon } from 'lucide-react';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {

@@ -5,7 +5,7 @@ import { analyticsAPI, urlAPI } from '../services/api';
 import Loading from '../components/Common/Loading';
 import { 
   LinkIcon, 
-  BarChart3Icon, 
+  BarChart3 as BarChart3Icon, 
   TrendingUpIcon, 
   MousePointerClickIcon,
   PlusIcon,

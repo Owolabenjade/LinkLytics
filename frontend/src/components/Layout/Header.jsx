@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { 
   HomeIcon, 
   LinkIcon, 
-  ChartBarIcon, 
+  BarChart3 as ChartBarIcon, 
   CogIcon,
   LogOutIcon,
   MenuIcon,
