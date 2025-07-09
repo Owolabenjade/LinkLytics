@@ -8,7 +8,7 @@ const Webhook = require('./Webhook');
 User.hasMany(Url, { foreignKey: 'userId', as: 'urls' });
 Url.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
-Url.hasMany(Click, { foreignKey: 'urlId', as: 'clicks' });
+Url.hasMany(Click, { foreignKey: 'urlId', as: 'clickRecords' }); // Changed from 'clicks' to 'clickRecords'
 Click.belongsTo(Url, { foreignKey: 'urlId', as: 'url' });
 
 User.hasMany(Webhook, { foreignKey: 'userId', as: 'webhooks' });
