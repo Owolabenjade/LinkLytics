@@ -1,5 +1,20 @@
 const { body, param, validationResult } = require('express-validator');
 
+// Validation middleware
+const validate = (req, res, next) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({
+      success: false,
+      errors: errors.array().map(err => ({
+        field: err.param,
+        message: err.msg
+      }))
+    });
+  }
+  next();
+};
+
 // Validation rules
 const validators = {
   // Auth validators
@@ -32,6 +47,7 @@ const validators = {
   // URL validators
   createUrl: [
     body('originalUrl')
+      .optional()
       .isURL({ 
         protocols: ['http', 'https'],
         require_protocol: true 
@@ -60,21 +76,6 @@ const validators = {
       .isLength({ min: 3, max: 50 })
       .withMessage('Invalid short code')
   ]
-};
-
-// Validation middleware
-const validate = (req, res, next) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({
-      success: false,
-      errors: errors.array().map(err => ({
-        field: err.param,
-        message: err.msg
-      }))
-    });
-  }
-  next();
 };
 
 module.exports = {

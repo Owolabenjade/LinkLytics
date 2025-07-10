@@ -7,8 +7,7 @@ import {
   CopyIcon, 
   ExternalLinkIcon,
   PlusIcon,
-  TrashIcon,
-  Scale as ScaleIcon
+  TrashIcon
 } from 'lucide-react';
 
 const CreateLink = () => {
