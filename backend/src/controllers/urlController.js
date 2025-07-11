@@ -175,29 +175,6 @@ const getUserUrls = catchAsync(async (req, res) => {
       }
     }
   });
-});title', 
-      'clicks', 'createdAt', 'updatedAt'
-    ]
-  });
-
-  // Add short URLs to response
-  const urlsWithShortLinks = urls.map(url => ({
-    ...url.toJSON(),
-    shortUrl: `${config.app.url}/${url.shortCode}`
-  }));
-
-  res.json({
-    success: true,
-    data: {
-      urls: urlsWithShortLinks,
-      pagination: {
-        total: count,
-        pages: Math.ceil(count / limit),
-        page: parseInt(page),
-        limit: parseInt(limit)
-      }
-    }
-  });
 });
 
 /**
