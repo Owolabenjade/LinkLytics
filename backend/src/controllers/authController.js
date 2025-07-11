@@ -1,290 +1,185 @@
-const { Url, Click } = require('../models');
+const jwt = require('jsonwebtoken');
+const { User } = require('../models');
+const config = require('../config/config');
 const { AppError, catchAsync } = require('../middleware/errorHandler');
-const { Op } = require('sequelize');
-const { sequelize } = require('../config/database');
-const { generateClickHeatmap } = require('../services/analyticsService');
 
 /**
- * Get analytics for a specific URL
+ * Generate JWT token
  */
-const getUrlAnalytics = catchAsync(async (req, res, next) => {
-  const { id } = req.params;
-  const userId = req.user.id;
-  const { startDate, endDate } = req.query;
+const generateToken = (userId) => {
+  return jwt.sign(
+    { id: userId },
+    config.jwt.secret,
+    { expiresIn: config.jwt.expiresIn }
+  );
+};
 
-  // Verify URL ownership
-  const url = await Url.findOne({
-    where: { id, userId, isActive: true }
+/**
+ * Register new user
+ */
+const register = catchAsync(async (req, res, next) => {
+  const { email, password, name } = req.body;
+
+  // Check if user exists
+  const existingUser = await User.findOne({ where: { email } });
+  if (existingUser) {
+    return next(new AppError('Email already registered', 400));
+  }
+
+  // Create user
+  const user = await User.create({
+    email,
+    password,
+    name
   });
 
-  if (!url) {
-    return next(new AppError('URL not found', 404));
-  }
+  // Generate token
+  const token = generateToken(user.id);
 
-  // Build date filter
-  const dateFilter = {};
-  if (startDate) {
-    dateFilter.clickedAt = { 
-      [Op.gte]: new Date(startDate) 
-    };
-  }
-  if (endDate) {
-    dateFilter.clickedAt = {
-      ...dateFilter.clickedAt,
-      [Op.lte]: new Date(endDate)
-    };
-  }
-
-  // Get click statistics
-  const [
-    totalClicks,
-    clicksByDate,
-    clicksByCountry,
-    clicksByReferer,
-    clicksByDevice,
-    clicksByBrowser,
-    clicksByOS,
-    clicksByUTM,
-    recentClicks,
-    allClicks
-  ] = await Promise.all([
-    // Total clicks
-    Click.count({
-      where: { urlId: id, ...dateFilter }
-    }),
-
-    // Clicks by date
-    Click.findAll({
-      where: { urlId: id, ...dateFilter },
-      attributes: [
-        [sequelize.fn('DATE', sequelize.col('clickedAt')), 'date'],
-        [sequelize.fn('COUNT', '*'), 'count']
-      ],
-      group: ['date'],
-      order: [['date', 'ASC']],
-      raw: true
-    }),
-
-    // Clicks by country
-    Click.findAll({
-      where: { urlId: id, ...dateFilter },
-      attributes: [
-        'country',
-        [sequelize.fn('COUNT', '*'), 'count']
-      ],
-      group: ['country'],
-      order: [[sequelize.literal('count'), 'DESC']],
-      limit: 10,
-      raw: true
-    }),
-
-    // Clicks by referer
-    Click.findAll({
-      where: { urlId: id, ...dateFilter },
-      attributes: [
-        'referer',
-        [sequelize.fn('COUNT', '*'), 'count']
-      ],
-      group: ['referer'],
-      order: [[sequelize.literal('count'), 'DESC']],
-      limit: 10,
-      raw: true
-    }),
-
-    // Clicks by device type
-    Click.findAll({
-      where: { urlId: id, ...dateFilter },
-      attributes: [
-        'device',
-        [sequelize.fn('COUNT', '*'), 'count']
-      ],
-      group: ['device'],
-      order: [[sequelize.literal('count'), 'DESC']],
-      raw: true
-    }),
-
-    // Clicks by browser
-    Click.findAll({
-      where: { urlId: id, ...dateFilter },
-      attributes: [
-        'browser',
-        [sequelize.fn('COUNT', '*'), 'count']
-      ],
-      group: ['browser'],
-      order: [[sequelize.literal('count'), 'DESC']],
-      limit: 10,
-      raw: true
-    }),
-
-    // Clicks by OS
-    Click.findAll({
-      where: { urlId: id, ...dateFilter },
-      attributes: [
-        'os',
-        [sequelize.fn('COUNT', '*'), 'count']
-      ],
-      group: ['os'],
-      order: [[sequelize.literal('count'), 'DESC']],
-      limit: 10,
-      raw: true
-    }),
-
-    // UTM campaign performance
-    Click.findAll({
-      where: { 
-        urlId: id, 
-        ...dateFilter,
-        utmCampaign: { [Op.not]: null }
-      },
-      attributes: [
-        'utmSource',
-        'utmMedium',
-        'utmCampaign',
-        [sequelize.fn('COUNT', '*'), 'count']
-      ],
-      group: ['utmSource', 'utmMedium', 'utmCampaign'],
-      order: [[sequelize.literal('count'), 'DESC']],
-      limit: 10,
-      raw: true
-    }),
-
-    // Recent clicks
-    Click.findAll({
-      where: { urlId: id },
-      order: [['clickedAt', 'DESC']],
-      limit: 10,
-      attributes: ['ipAddress', 'country', 'city', 'device', 'browser', 'clickedAt']
-    }),
-
-    // All clicks for heatmap
-    Click.findAll({
-      where: { urlId: id, ...dateFilter },
-      attributes: ['clickedAt'],
-      raw: true
-    })
-  ]);
-
-  // Generate click heatmap
-  const clickHeatmap = generateClickHeatmap(allClicks);
-
-  res.json({
+  res.status(201).json({
     success: true,
+    message: 'User registered successfully',
     data: {
-      url: {
-        id: url.id,
-        shortCode: url.shortCode,
-        originalUrl: url.originalUrl,
-        title: url.title,
-        isABTest: url.isABTest,
-        createdAt: url.createdAt
-      },
-      analytics: {
-        totalClicks,
-        clicksByDate,
-        clicksByCountry: clicksByCountry.filter(c => c.country),
-        clicksByReferer: clicksByReferer.filter(r => r.referer),
-        clicksByDevice: clicksByDevice.filter(d => d.device),
-        clicksByBrowser: clicksByBrowser.filter(b => b.browser),
-        clicksByOS: clicksByOS.filter(o => o.os),
-        clicksByUTM,
-        clickHeatmap,
-        recentClicks
-      }
+      user: user.toJSON(),
+      token
     }
   });
 });
 
 /**
- * Get dashboard statistics
+ * Login user
  */
-const getDashboardStats = catchAsync(async (req, res) => {
-  const userId = req.user.id;
-  const { days = 7 } = req.query;
+const login = catchAsync(async (req, res, next) => {
+  const { email, password } = req.body;
 
-  const startDate = new Date();
-  startDate.setDate(startDate.getDate() - days);
+  // Find user
+  const user = await User.findOne({ where: { email } });
+  if (!user) {
+    return next(new AppError('Invalid credentials', 401));
+  }
 
-  // Get statistics
-  const [
-    totalUrls,
-    totalClicks,
-    urlsCreatedRecently,
-    clicksByDate,
-    topUrls
-  ] = await Promise.all([
-    // Total URLs
-    Url.count({
-      where: { userId, isActive: true }
-    }),
+  // Check password
+  const isPasswordValid = await user.comparePassword(password);
+  if (!isPasswordValid) {
+    return next(new AppError('Invalid credentials', 401));
+  }
 
-    // Total clicks across all URLs
-    Click.count({
-      include: [{
-        model: Url,
-        as: 'url',
-        where: { userId },
-        attributes: []
-      }]
-    }),
+  // Check if user is active
+  if (!user.isActive) {
+    return next(new AppError('Account is deactivated', 401));
+  }
 
-    // URLs created recently
-    Url.count({
-      where: {
-        userId,
-        isActive: true,
-        createdAt: { [Op.gte]: startDate }
-      }
-    }),
-
-    // Clicks by date for the period
-    sequelize.query(`
-      SELECT 
-        DATE(c."clickedAt") as date,
-        COUNT(*) as count
-      FROM clicks c
-      INNER JOIN urls u ON c."urlId" = u.id
-      WHERE u."userId" = :userId
-        AND c."clickedAt" >= :startDate
-      GROUP BY DATE(c."clickedAt")
-      ORDER BY date ASC
-    `, {
-      replacements: { userId, startDate },
-      type: sequelize.QueryTypes.SELECT
-    }),
-
-    // Top performing URLs
-    Url.findAll({
-      where: { userId, isActive: true },
-      order: [['clicks', 'DESC']],
-      limit: 5,
-      attributes: ['id', 'shortCode', 'originalUrl', 'title', 'clicks']
-    })
-  ]);
-
-  // Calculate average clicks per URL
-  const averageClicksPerUrl = totalUrls > 0 
-    ? Math.round(totalClicks / totalUrls) 
-    : 0;
+  // Generate token
+  const token = generateToken(user.id);
 
   res.json({
     success: true,
+    message: 'Login successful',
     data: {
-      overview: {
-        totalUrls,
-        totalClicks,
-        urlsCreatedRecently,
-        averageClicksPerUrl
-      },
-      clicksByDate,
-      topUrls: topUrls.map(url => ({
-        ...url.toJSON(),
-        shortUrl: `${config.app.url}/${url.shortCode}`
-      }))
+      user: user.toJSON(),
+      token
+    }
+  });
+});
+
+/**
+ * Get current user
+ */
+const getMe = catchAsync(async (req, res) => {
+  res.json({
+    success: true,
+    data: {
+      user: req.user.toJSON()
+    }
+  });
+});
+
+/**
+ * Update user profile
+ */
+const updateProfile = catchAsync(async (req, res, next) => {
+  const { name } = req.body;
+  const userId = req.user.id;
+
+  // Update user
+  await User.update(
+    { name },
+    { where: { id: userId } }
+  );
+
+  // Get updated user
+  const user = await User.findByPk(userId);
+
+  res.json({
+    success: true,
+    message: 'Profile updated successfully',
+    data: {
+      user: user.toJSON()
+    }
+  });
+});
+
+/**
+ * Change password
+ */
+const changePassword = catchAsync(async (req, res, next) => {
+  const { currentPassword, newPassword } = req.body;
+  const userId = req.user.id;
+
+  // Get user with password
+  const user = await User.findByPk(userId);
+
+  // Verify current password
+  const isPasswordValid = await user.comparePassword(currentPassword);
+  if (!isPasswordValid) {
+    return next(new AppError('Current password is incorrect', 401));
+  }
+
+  // Update password
+  user.password = newPassword;
+  await user.save();
+
+  // Generate new token
+  const token = generateToken(user.id);
+
+  res.json({
+    success: true,
+    message: 'Password changed successfully',
+    data: {
+      token
+    }
+  });
+});
+
+/**
+ * Regenerate API key
+ */
+const regenerateApiKey = catchAsync(async (req, res) => {
+  const userId = req.user.id;
+
+  // Generate new API key
+  const newApiKey = 'lk_' + require('crypto').randomBytes(32).toString('hex');
+
+  // Update user
+  await User.update(
+    { apiKey: newApiKey },
+    { where: { id: userId } }
+  );
+
+  res.json({
+    success: true,
+    message: 'API key regenerated successfully',
+    data: {
+      apiKey: newApiKey
     }
   });
 });
 
 module.exports = {
-  getUrlAnalytics,
-  getDashboardStats
+  register,
+  login,
+  getMe,
+  updateProfile,
+  changePassword,
+  regenerateApiKey
 };
