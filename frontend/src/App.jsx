@@ -8,6 +8,7 @@ import Login from './components/Auth/Login';
 import Register from './components/Auth/Register';
 import Dashboard from './pages/Dashboard';
 import CreateLink from './pages/CreateLink';
+import MyLinks from './pages/MyLinks';
 import { LinkIcon, BarChart3 as BarChart3Icon, Scale as ScaleIcon } from 'lucide-react';
 
 // Protected Route Component
@@ -165,7 +166,7 @@ function App() {
               path="/links" 
               element={
                 <ProtectedRoute>
-                  <div className="p-8 text-center">Links page coming soon...</div>
+                  <MyLinks />
                 </ProtectedRoute>
               } 
             />
