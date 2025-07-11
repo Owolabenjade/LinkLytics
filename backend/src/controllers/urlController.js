@@ -7,6 +7,7 @@ const { parseUserAgent, getGeolocation, extractUTMParams } = require('../service
 const { triggerWebhooks, checkMilestones } = require('../services/webhookService');
 const { isClickFraudulent, isIPBlocked } = require('../services/fraudDetectionService');
 const { Op } = require('sequelize');
+const QRCode = require('qrcode');
 
 /**
  * Create shortened URL
@@ -401,11 +402,69 @@ const redirect = catchAsync(async (req, res, next) => {
   res.redirect(301, destinationUrl);
 });
 
+/**
+ * Generate QR code for shortened URL
+ */
+const getQRCode = catchAsync(async (req, res, next) => {
+  const { shortCode } = req.params;
+  const { size = 200, format = 'png' } = req.query;
+
+  // Check if URL exists
+  const url = await Url.findOne({
+    where: { shortCode, isActive: true }
+  });
+
+  if (!url) {
+    return next(new AppError('URL not found', 404));
+  }
+
+  // Check if URL has expired
+  if (url.expiresAt && new Date() > url.expiresAt) {
+    return next(new AppError('URL has expired', 410));
+  }
+
+  const shortUrl = `${config.app.url}/${shortCode}`;
+  
+  try {
+    // Generate QR code based on format
+    if (format === 'svg') {
+      const qrSvg = await QRCode.toString(shortUrl, {
+        type: 'svg',
+        width: parseInt(size),
+        margin: 2,
+        color: {
+          dark: '#000000',
+          light: '#FFFFFF'
+        }
+      });
+      
+      res.setHeader('Content-Type', 'image/svg+xml');
+      res.send(qrSvg);
+    } else {
+      // Default to PNG
+      const qrBuffer = await QRCode.toBuffer(shortUrl, {
+        width: parseInt(size),
+        margin: 2,
+        color: {
+          dark: '#000000',
+          light: '#FFFFFF'
+        }
+      });
+      
+      res.setHeader('Content-Type', 'image/png');
+      res.send(qrBuffer);
+    }
+  } catch (error) {
+    return next(new AppError('Error generating QR code', 500));
+  }
+});
+
 module.exports = {
   createUrl,
   getUserUrls,
   getUrl,
   updateUrl,
   deleteUrl,
-  redirect
+  redirect,
+  getQRCode
 };
