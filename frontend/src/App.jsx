@@ -9,6 +9,8 @@ import Register from './components/Auth/Register';
 import Dashboard from './pages/Dashboard';
 import CreateLink from './pages/CreateLink';
 import MyLinks from './pages/MyLinks';
+import Analytics from './pages/Analytics';
+import Settings from './pages/Settings';
 import { LinkIcon, BarChart3 as BarChart3Icon, Scale as ScaleIcon } from 'lucide-react';
 
 // Protected Route Component
@@ -171,10 +173,18 @@ function App() {
               } 
             />
             <Route 
+              path="/analytics/:id" 
+              element={
+                <ProtectedRoute>
+                  <Analytics />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
               path="/analytics" 
               element={
                 <ProtectedRoute>
-                  <div className="p-8 text-center">Analytics page coming soon...</div>
+                  <Navigate to="/links" replace />
                 </ProtectedRoute>
               } 
             />
