@@ -192,7 +192,7 @@ function App() {
               path="/settings" 
               element={
                 <ProtectedRoute>
-                  <div className="p-8 text-center">Settings page coming soon...</div>
+                  <Settings />
                 </ProtectedRoute>
               } 
             />
