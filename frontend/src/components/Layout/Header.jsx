@@ -4,11 +4,11 @@ import { useAuth } from '../../context/AuthContext';
 import { 
   HomeIcon, 
   LinkIcon, 
-  BarChart3 as ChartBarIcon, 
   CogIcon,
   LogOutIcon,
   MenuIcon,
-  XIcon
+  XIcon,
+  PlusIcon
 } from 'lucide-react';
 
 const Header = () => {
@@ -24,7 +24,6 @@ const Header = () => {
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
     { name: 'My Links', href: '/links', icon: LinkIcon },
-    { name: 'Analytics', href: '/analytics', icon: ChartBarIcon },
     { name: 'Settings', href: '/settings', icon: CogIcon },
   ];
 
@@ -58,6 +57,13 @@ const Header = () => {
             {user ? (
               <>
                 <div className="hidden sm:flex sm:items-center sm:space-x-4">
+                  <Link
+                    to="/create"
+                    className="inline-flex items-center px-3 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-md transition-colors"
+                  >
+                    <PlusIcon className="h-4 w-4 mr-2" />
+                    Create Link
+                  </Link>
                   <span className="text-sm text-gray-700">
                     {user.name}
                   </span>
@@ -107,6 +113,14 @@ const Header = () => {
         {user && mobileMenuOpen && (
           <div className="sm:hidden">
             <div className="pt-2 pb-3 space-y-1">
+              <Link
+                to="/create"
+                className="flex items-center px-3 py-2 text-base font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-md mx-3 mb-2"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                <PlusIcon className="h-5 w-5 mr-3" />
+                Create Link
+              </Link>
               {navigation.map((item) => (
                 <Link
                   key={item.name}

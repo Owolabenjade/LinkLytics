@@ -27,7 +27,12 @@ const Click = sequelize.define('Click', {
     type: DataTypes.TEXT,
     allowNull: true
   },
+  // Geographic data
   country: {
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  countryCode: {
     type: DataTypes.STRING(2),
     allowNull: true
   },
@@ -39,7 +44,21 @@ const Click = sequelize.define('Click', {
     type: DataTypes.STRING,
     allowNull: true
   },
+  latitude: {
+    type: DataTypes.DECIMAL(10, 8),
+    allowNull: true
+  },
+  longitude: {
+    type: DataTypes.DECIMAL(11, 8),
+    allowNull: true
+  },
+  // Device information
   device: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    defaultValue: 'Desktop'
+  },
+  deviceType: {
     type: DataTypes.STRING,
     allowNull: true
   },
@@ -59,6 +78,7 @@ const Click = sequelize.define('Click', {
     type: DataTypes.STRING,
     allowNull: true
   },
+  // UTM parameters
   utmSource: {
     type: DataTypes.STRING,
     allowNull: true
@@ -79,6 +99,15 @@ const Click = sequelize.define('Click', {
     type: DataTypes.STRING,
     allowNull: true
   },
+  // Additional metadata
+  isBot: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false
+  },
+  isMobile: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false
+  },
   clickedAt: {
     type: DataTypes.DATE,
     defaultValue: DataTypes.NOW
@@ -95,6 +124,12 @@ const Click = sequelize.define('Click', {
     },
     {
       fields: ['country']
+    },
+    {
+      fields: ['device']
+    },
+    {
+      fields: ['browser']
     }
   ]
 });
