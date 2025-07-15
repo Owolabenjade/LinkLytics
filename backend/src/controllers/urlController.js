@@ -6,8 +6,10 @@ const config = require('../config/config');
 const { parseUserAgent, getGeolocation, extractUTMParams } = require('../services/analyticsService');
 const { triggerWebhooks, checkMilestones } = require('../services/webhookService');
 const { isClickFraudulent, isIPBlocked } = require('../services/fraudDetectionService');
+const geoService = require('../services/geoService');
 const { Op } = require('sequelize');
 const QRCode = require('qrcode');
+const UAParser = require('ua-parser-js');
 
 /**
  * Create shortened URL
@@ -263,13 +265,16 @@ const deleteUrl = catchAsync(async (req, res, next) => {
 });
 
 /**
- * Redirect to original URL
+ * Redirect to original URL with enhanced analytics
  */
 const redirect = catchAsync(async (req, res, next) => {
   const { shortCode } = req.params;
-  const ipAddress = req.ip;
+  const ipAddress = req.headers['x-forwarded-for']?.split(',')[0] || 
+                   req.connection.remoteAddress ||
+                   req.socket.remoteAddress ||
+                   req.ip;
   const userAgent = req.headers['user-agent'];
-  const referer = req.headers['referer'] || null;
+  const referer = req.headers['referer'] || req.headers['referrer'] || null;
 
   // Check if IP is blocked
   if (await isIPBlocked(ipAddress)) {
@@ -290,7 +295,7 @@ const redirect = catchAsync(async (req, res, next) => {
     url = parsedCache;
     
     // Increment clicks asynchronously
-    Url.incrementClicks(shortCode);
+    Url.increment('clicks', { where: { shortCode } });
   } else {
     // Get from database
     const urlRecord = await Url.findOne({
@@ -299,12 +304,12 @@ const redirect = catchAsync(async (req, res, next) => {
 
     if (!urlRecord) {
       // Custom 404 page redirect
-      return res.redirect(301, `${config.app.clientUrl}/404`);
+      return res.status(404).send('URL not found');
     }
 
     // Check if URL has expired
     if (urlRecord.expiresAt && new Date() > urlRecord.expiresAt) {
-      return res.redirect(301, `${config.app.clientUrl}/expired`);
+      return res.status(410).send('URL has expired');
     }
 
     url = {
@@ -327,6 +332,37 @@ const redirect = catchAsync(async (req, res, next) => {
     await urlRecord.increment('clicks');
   }
 
+  // Parse user agent using UAParser
+  const parser = new UAParser();
+  const ua = parser.setUA(userAgent).getResult();
+  
+  // Determine device type
+  let device = 'Desktop';
+  let deviceType = 'desktop';
+  let isMobile = false;
+  
+  if (ua.device.type) {
+    if (ua.device.type === 'mobile') {
+      device = 'Mobile';
+      deviceType = 'mobile';
+      isMobile = true;
+    } else if (ua.device.type === 'tablet') {
+      device = 'Tablet';
+      deviceType = 'tablet';
+      isMobile = true;
+    }
+  }
+
+  // Extract UTM parameters from query string
+  const { 
+    utm_source, utm_medium, utm_campaign, 
+    utm_term, utm_content 
+  } = req.query;
+
+  // Check if it's a bot
+  const botPatterns = /bot|crawler|spider|scraper|facebookexternalhit|whatsapp|telegram|slack/i;
+  const isBot = botPatterns.test(userAgent);
+
   // Determine destination URL for A/B tests
   let destinationUrl = url.originalUrl;
   let selectedVariant = null;
@@ -346,57 +382,88 @@ const redirect = catchAsync(async (req, res, next) => {
     }
   }
 
-  // Parse user agent and get location
-  const agentInfo = parseUserAgent(userAgent);
-  const location = await getGeolocation(ipAddress);
-  
-  // Extract UTM parameters from referer
-  const utmParams = extractUTMParams(referer);
+  // Create click record
+  try {
+    const clickData = {
+      urlId: url.id,
+      ipAddress: ipAddress || null,
+      userAgent: userAgent || null,
+      referer: referer || null,
+      // Device information
+      device: device,
+      deviceType: deviceType,
+      browser: ua.browser.name || 'Unknown',
+      browserVersion: ua.browser.version || null,
+      os: ua.os.name || 'Unknown',
+      osVersion: ua.os.version || null,
+      // UTM parameters
+      utmSource: utm_source || null,
+      utmMedium: utm_medium || null,
+      utmCampaign: utm_campaign || null,
+      utmTerm: utm_term || null,
+      utmContent: utm_content || null,
+      // Metadata
+      isBot: isBot,
+      isMobile: isMobile,
+      clickedAt: new Date()
+    };
 
-  // Record click with enhanced analytics
-  Click.create({
-    urlId: url.id,
-    ipAddress,
-    userAgent,
-    referer,
-    country: location.country,
-    city: location.city,
-    region: location.region,
-    device: agentInfo.device,
-    browser: agentInfo.browser,
-    browserVersion: agentInfo.browserVersion,
-    os: agentInfo.os,
-    osVersion: agentInfo.osVersion,
-    utmSource: utmParams.utm_source,
-    utmMedium: utmParams.utm_medium,
-    utmCampaign: utmParams.utm_campaign,
-    utmTerm: utmParams.utm_term,
-    utmContent: utmParams.utm_content,
-    clickedAt: new Date()
-  }).then(async () => {
-    // Trigger click webhook
-    await triggerWebhooks(url.userId, 'click', {
-      url: {
-        id: url.id,
-        shortCode,
-        originalUrl: url.originalUrl
-      },
-      click: {
-        ipAddress,
-        country: location.country,
-        city: location.city,
-        device: agentInfo.device,
-        browser: agentInfo.browser,
-        referer,
-        variant: selectedVariant
+    // Get geolocation data
+    if (ipAddress && geoService) {
+      try {
+        const geoData = await geoService.lookup(ipAddress);
+        if (geoData) {
+          clickData.country = geoData.country;
+          clickData.countryCode = geoData.countryCode;
+          clickData.city = geoData.city;
+          clickData.region = geoData.region;
+          clickData.latitude = geoData.latitude;
+          clickData.longitude = geoData.longitude;
+        }
+      } catch (geoError) {
+        console.error('Geo lookup error:', geoError);
+      }
+    }
+
+    await Click.create(clickData);
+
+    // Trigger webhooks asynchronously
+    setImmediate(async () => {
+      try {
+        // Trigger click webhook
+        await triggerWebhooks(url.userId, 'click', {
+          url: {
+            id: url.id,
+            shortCode,
+            originalUrl: url.originalUrl
+          },
+          click: {
+            ipAddress,
+            country: clickData.country,
+            city: clickData.city,
+            device: device,
+            browser: ua.browser.name,
+            referer,
+            variant: selectedVariant
+          }
+        });
+
+        // Check for milestones
+        if (url.clicks) {
+          await checkMilestones(
+            { id: url.id, shortCode, originalUrl: url.originalUrl, userId: url.userId }, 
+            url.clicks, 
+            url.clicks + 1
+          );
+        }
+      } catch (err) {
+        console.error('Error in post-click processing:', err);
       }
     });
-
-    // Check for milestones
-    if (url.clicks) {
-      await checkMilestones({ id: url.id, shortCode, originalUrl: url.originalUrl, userId: url.userId }, url.clicks, url.clicks + 1);
-    }
-  }).catch(err => console.error('Error recording click:', err));
+  } catch (error) {
+    console.error('Error recording click:', error);
+    // Don't block the redirect if analytics fails
+  }
 
   // Redirect
   res.redirect(301, destinationUrl);
