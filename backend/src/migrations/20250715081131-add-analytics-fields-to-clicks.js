@@ -104,21 +104,63 @@ module.exports = {
       });
     }
 
-    // Add indexes for better query performance
-    await queryInterface.addIndex('clicks', ['device']);
-    await queryInterface.addIndex('clicks', ['browser']);
-    await queryInterface.addIndex('clicks', ['os']);
-    await queryInterface.addIndex('clicks', ['utmSource']);
-    await queryInterface.addIndex('clicks', ['utmCampaign']);
+    // Helper function to check if index exists
+    const indexExists = async (tableName, indexName) => {
+      const [results] = await queryInterface.sequelize.query(`
+        SELECT indexname 
+        FROM pg_indexes 
+        WHERE tablename = '${tableName}' 
+        AND indexname = '${indexName}'
+      `);
+      return results.length > 0;
+    };
+
+    // Add indexes for better query performance (only if they don't exist)
+    const indexesToAdd = [
+      { column: 'device', name: 'clicks_device' },
+      { column: 'browser', name: 'clicks_browser' },
+      { column: 'os', name: 'clicks_os' },
+      { column: 'utmSource', name: 'clicks_utm_source' },
+      { column: 'utmCampaign', name: 'clicks_utm_campaign' }
+    ];
+
+    for (const index of indexesToAdd) {
+      const exists = await indexExists('clicks', index.name);
+      if (!exists) {
+        await queryInterface.addIndex('clicks', [index.column], {
+          name: index.name
+        });
+      }
+    }
   },
 
   down: async (queryInterface, Sequelize) => {
-    // Remove indexes
-    await queryInterface.removeIndex('clicks', ['device']);
-    await queryInterface.removeIndex('clicks', ['browser']);
-    await queryInterface.removeIndex('clicks', ['os']);
-    await queryInterface.removeIndex('clicks', ['utmSource']);
-    await queryInterface.removeIndex('clicks', ['utmCampaign']);
+    // Helper function to check if index exists
+    const indexExists = async (tableName, indexName) => {
+      const [results] = await queryInterface.sequelize.query(`
+        SELECT indexname 
+        FROM pg_indexes 
+        WHERE tablename = '${tableName}' 
+        AND indexname = '${indexName}'
+      `);
+      return results.length > 0;
+    };
+
+    // Remove indexes (only if they exist)
+    const indexesToRemove = [
+      'clicks_device',
+      'clicks_browser', 
+      'clicks_os',
+      'clicks_utm_source',
+      'clicks_utm_campaign'
+    ];
+
+    for (const indexName of indexesToRemove) {
+      const exists = await indexExists('clicks', indexName);
+      if (exists) {
+        await queryInterface.removeIndex('clicks', indexName);
+      }
+    }
 
     // Remove columns
     const columnsToRemove = [
@@ -128,8 +170,12 @@ module.exports = {
       'isBot', 'isMobile'
     ];
 
+    const tableInfo = await queryInterface.describeTable('clicks');
+    
     for (const column of columnsToRemove) {
-      await queryInterface.removeColumn('clicks', column);
+      if (tableInfo[column]) {
+        await queryInterface.removeColumn('clicks', column);
+      }
     }
   }
 };
