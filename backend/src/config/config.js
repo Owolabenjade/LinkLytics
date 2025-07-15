@@ -1,6 +1,7 @@
 require('dotenv').config();
 
-module.exports = {
+// Original config for your application
+const appConfig = {
   app: {
     port: process.env.PORT || 5000,
     env: process.env.NODE_ENV || 'development',
@@ -31,3 +32,69 @@ module.exports = {
     alphabet: 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
   }
 };
+
+// Parse DATABASE_URL to extract individual components
+const parseDbUrl = (url) => {
+  if (!url) return {};
+  
+  const match = url.match(/postgresql:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)/);
+  if (!match) return {};
+  
+  return {
+    username: match[1],
+    password: match[2],
+    host: match[3],
+    port: parseInt(match[4]),
+    database: match[5]
+  };
+};
+
+const dbConfig = parseDbUrl(process.env.DATABASE_URL);
+
+// Sequelize CLI configuration
+const sequelizeConfig = {
+  development: {
+    username: dbConfig.username || 'postgres',
+    password: dbConfig.password || 'postgres',
+    database: dbConfig.database || 'linklytics_dev',
+    host: dbConfig.host || 'localhost',
+    port: dbConfig.port || 5432,
+    dialect: 'postgres',
+    dialectOptions: {
+      ssl: process.env.DB_SSL === 'true' ? {
+        require: true,
+        rejectUnauthorized: false
+      } : false
+    },
+    logging: process.env.NODE_ENV === 'development' ? console.log : false
+  },
+  test: {
+    username: dbConfig.username || 'postgres',
+    password: dbConfig.password || 'postgres',
+    database: `${dbConfig.database}_test` || 'linklytics_test',
+    host: dbConfig.host || 'localhost',
+    port: dbConfig.port || 5432,
+    dialect: 'postgres',
+    logging: false
+  },
+  production: {
+    use_env_variable: 'DATABASE_URL',
+    dialect: 'postgres',
+    dialectOptions: {
+      ssl: {
+        require: true,
+        rejectUnauthorized: false
+      }
+    },
+    logging: false
+  }
+};
+
+// Export the original config as default and Sequelize config as named export
+module.exports = appConfig;
+module.exports.sequelize = sequelizeConfig;
+
+// For backwards compatibility, you can also access environments directly
+module.exports.development = sequelizeConfig.development;
+module.exports.test = sequelizeConfig.test;
+module.exports.production = sequelizeConfig.production;
